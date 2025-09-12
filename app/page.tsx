@@ -1,16 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchNearestMetro } from "@/lib/api";
+import { fetchNearestMetro, fetchAllPandals, fetchPandalsByZone } from "@/lib/api";
 import MapComponent from "@/components/MapComponent";
 import MetroInfo from "@/components/MetroInfo";
-import { UserLocation, MetroStation } from "@/lib";
+import PandalSelector from "@/components/PandalSelector";
+import { UserLocation, MetroStation, Pandal, Zone } from "@/lib";
 
 export default function HomePage() {
     const [coords, setCoords] = useState<UserLocation | null>(null);
     const [station, setStation] = useState<MetroStation | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [pandals, setPandals] = useState<Pandal[]>([]);
+    const [selectedZone, setSelectedZone] = useState<Zone>('All');
+    const [pandalsLoading, setPandalsLoading] = useState(false);
 
     // Step 1: Get user location
     useEffect(() => {
@@ -58,6 +62,30 @@ export default function HomePage() {
         }
     }, [coords]);
 
+    // Step 3: Fetch pandals on mount and when zone changes
+    useEffect(() => {
+        setPandalsLoading(true);
+        const fetchPandals = selectedZone === 'All' ? fetchAllPandals() : fetchPandalsByZone(selectedZone);
+        
+        fetchPandals
+            .then((pandalData) => {
+                if (pandalData) {
+                    setPandals(pandalData);
+                    console.log(`Loaded ${pandalData.length} pandals for zone: ${selectedZone}`);
+                } else {
+                    setPandals([]);
+                    console.log('No pandals found');
+                }
+            })
+            .catch((err) => {
+                console.error('Error fetching pandals:', err);
+                setPandals([]);
+            })
+            .finally(() => {
+                setPandalsLoading(false);
+            });
+    }, [selectedZone]);
+
     return (
         <main className="container mx-auto p-4 max-w-4xl">
             <div className="mb-8">
@@ -102,11 +130,23 @@ export default function HomePage() {
                 </div>
             )}
 
-            {coords && station && (
-                <div className="rounded-lg overflow-hidden shadow-lg">
-                    <MapComponent user={coords} metro={station} />
+            <PandalSelector 
+                selectedZone={selectedZone}
+                onZoneChange={setSelectedZone}
+                isLoading={pandalsLoading}
+            />
+
+            {pandals.length > 0 && (
+                <div className="mb-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                    <p className="text-sm text-purple-800 dark:text-purple-200">
+                        🎪 Showing {pandals.length} pandals in {selectedZone === 'All' ? 'all zones' : selectedZone}
+                    </p>
                 </div>
             )}
+
+            <div className="rounded-lg overflow-hidden shadow-lg">
+                <MapComponent user={coords} metro={station} pandals={pandals} />
+            </div>
         </main>
     );
 }

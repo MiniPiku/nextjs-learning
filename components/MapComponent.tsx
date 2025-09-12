@@ -1,32 +1,40 @@
 "use client";
 
-import { GoogleMap, Marker, DirectionsRenderer, useJsApiLoader } from "@react-google-maps/api";
+import { GoogleMap, Marker, DirectionsRenderer, useJsApiLoader, InfoWindow } from "@react-google-maps/api";
 import { useEffect, useState } from "react";
-import { UserLocation, MetroStation } from "@/lib";
+import { UserLocation, MetroStation, Pandal } from "@/lib";
 
-export default function MapComponent({ user, metro }: { user: UserLocation; metro: MetroStation }) {
+interface MapComponentProps {
+    user: UserLocation | null;
+    metro: MetroStation | null;
+    pandals?: Pandal[];
+}
+
+export default function MapComponent({ user, metro, pandals = [] }: MapComponentProps) {
     const { isLoaded } = useJsApiLoader({
         googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY!,
     });
 
     const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
+    const [selectedPandal, setSelectedPandal] = useState<Pandal | null>(null);
 
     useEffect(() => {
         if (isLoaded && user && metro) {
             // Debug: Log the coordinate values
             console.log("User coordinates:", user);
             console.log("Metro coordinates:", metro);
-            
+            console.log("Pandals count:", pandals.length);
+
             const userLat = Number(user.lat);
             const userLng = Number(user.lon);
             const metroLat = Number(metro.lat);
             const metroLng = Number(metro.lon);
-            
+
             console.log("Converted coordinates:", {
                 user: { lat: userLat, lng: userLng },
                 metro: { lat: metroLat, lng: metroLng }
             });
-            
+
             // Validate coordinates
             if (isNaN(userLat) || isNaN(userLng) || isNaN(metroLat) || isNaN(metroLng)) {
                 console.error("Invalid coordinates detected:", {
@@ -44,7 +52,7 @@ export default function MapComponent({ user, metro }: { user: UserLocation; metr
                 });
                 return;
             }
-            
+
             const directionsService = new google.maps.DirectionsService();
             directionsService.route(
                 {
@@ -66,24 +74,76 @@ export default function MapComponent({ user, metro }: { user: UserLocation; metr
 
     if (!isLoaded) return <p>Loading Map...</p>;
 
-    // Validate coordinates before rendering
-    const userLat = Number(user.lat);
-    const userLng = Number(user.lon);
-    const metroLat = Number(metro.lat);
-    const metroLng = Number(metro.lon);
+    // Determine center point - use user location if available, otherwise use first pandal or default
+    let centerLat = 22.5726; // Default Kolkata coordinates
+    let centerLng = 88.3639;
 
-    if (isNaN(userLat) || isNaN(userLng) || isNaN(metroLat) || isNaN(metroLng)) {
-        return <p>Error: Invalid coordinates received</p>;
+    if (user) {
+        centerLat = Number(user.lat);
+        centerLng = Number(user.lon);
+    } else if (pandals.length > 0) {
+        centerLat = pandals[0].latitude;
+        centerLng = pandals[0].longitude;
     }
 
     return (
         <GoogleMap
-            center={{ lat: userLat, lng: userLng }}
+            center={{ lat: centerLat, lng: centerLng }}
             zoom={13}
             mapContainerStyle={{ width: "100%", height: "500px" }}
         >
-            <Marker position={{ lat: userLat, lng: userLng }} label="You" />
-            <Marker position={{ lat: metroLat, lng: metroLng }} label={metro.name} />
+            {/* User Marker */}
+            {user && !isNaN(Number(user.lat)) && !isNaN(Number(user.lon)) && (
+                <Marker
+                    position={{ lat: Number(user.lat), lng: Number(user.lon) }}
+                    label={"You"}
+                    icon={{
+                        url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+                    }}
+                />
+            )}
+
+            {/* Metro Marker */}
+            {metro && !isNaN(Number(metro.lat)) && !isNaN(Number(metro.lon)) && (
+                <Marker
+                    position={{ lat: Number(metro.lat), lng: Number(metro.lon) }}
+                    label={String(metro.name || "Metro Station")}
+                    icon={{
+                        url: "http://maps.google.com/mapfiles/ms/icons/green-dot.png"
+                    }}
+                />
+            )}
+
+            {/* Pandal Markers */}
+            {pandals.map((pandal, index) => (
+                <Marker
+                    key={`pandal-${index}`}
+                    position={{ lat: pandal.latitude, lng: pandal.longitude }}
+                    title={pandal.name}
+                    onClick={() => setSelectedPandal(pandal)}
+                    icon={{
+                        url: "http://maps.google.com/mapfiles/ms/icons/red-dot.png"
+                    }}
+                />
+            ))}
+
+            {/* Info Window for selected pandal */}
+            {selectedPandal && (
+                <InfoWindow
+                    position={{ lat: selectedPandal.latitude, lng: selectedPandal.longitude }}
+                    onCloseClick={() => setSelectedPandal(null)}
+                >
+                    <div className="p-2">
+                        <h3 className="font-semibold text-sm">{selectedPandal.name}</h3>
+                        <p className="text-xs text-gray-600 mt-1">
+                            Lat: {selectedPandal.latitude.toFixed(4)},
+                            Lng: {selectedPandal.longitude.toFixed(4)}
+                        </p>
+                    </div>
+                </InfoWindow>
+            )}
+
+            {/* Directions */}
             {directions && <DirectionsRenderer directions={directions} />}
         </GoogleMap>
     );

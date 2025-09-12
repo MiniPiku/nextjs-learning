@@ -4,7 +4,12 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 
 ## Project Overview
 
-This is a Next.js application that helps users find the nearest metro station based on their current location. The app uses the Geolocation API to get user coordinates, sends them to a backend API, and displays the nearest metro station with a route on Google Maps.
+This is a Next.js application that helps users:
+1. Find the nearest metro station based on their current location
+2. View pandals (festival venues) in different zones of the city
+3. Display both metro route and pandal locations on Google Maps
+
+The app uses the Geolocation API to get user coordinates, fetches the nearest metro station, and shows pandals filtered by zone on an interactive map.
 
 ## Development Commands
 
