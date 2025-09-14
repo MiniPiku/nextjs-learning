@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { fetchNearestMetro, fetchAllPandals, fetchPandalsByZone, fetchMetrosByZone, fetchPandalsByMetro } from "@/lib/api";
-import MapComponent from "@/components/MapComponent";
-import MetroInfo from "@/components/MetroInfo";
-import PandalSelector from "@/components/PandalSelector";
+import MapComponent from "@/logic/MapComponent";
+import MetroInfo from "@/logic/MetroInfo";
+import PandalSelector from "@/logic/PandalSelector";
 import { UserLocation, MetroStation, Pandal, Zone, Metro } from "@/lib";
 
 export default function HomePage() {
@@ -166,9 +166,9 @@ export default function HomePage() {
     return (
         <main className="container mx-auto p-4 max-w-4xl">
             <div className="mb-8">
-                <h1 className="text-3xl font-bold text-center mb-4">Nearest Metro Finder</h1>
+                <h1 className="text-3xl font-bold text-center mb-4">Pandal-Hopper</h1>
                 <p className="text-center text-gray-600 dark:text-gray-300">
-                    Find your nearest metro station and get directions
+                    Let this site take care of your Pujo experience
                 </p>
             </div>
 
