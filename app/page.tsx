@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchNearestMetro, fetchAllPandals, fetchPandalsByZone } from "@/lib/api";
+import { fetchNearestMetro, fetchAllPandals, fetchPandalsByZone, fetchMetrosByZone, fetchPandalsByMetro } from "@/lib/api";
 import MapComponent from "@/components/MapComponent";
 import MetroInfo from "@/components/MetroInfo";
 import PandalSelector from "@/components/PandalSelector";
-import { UserLocation, MetroStation, Pandal, Zone } from "@/lib";
+import { UserLocation, MetroStation, Pandal, Zone, Metro } from "@/lib";
 
 export default function HomePage() {
     const [coords, setCoords] = useState<UserLocation | null>(null);
@@ -15,6 +15,9 @@ export default function HomePage() {
     const [pandals, setPandals] = useState<Pandal[]>([]);
     const [selectedZone, setSelectedZone] = useState<Zone>('All');
     const [pandalsLoading, setPandalsLoading] = useState(false);
+    const [metros, setMetros] = useState<Metro[]>([]);
+    const [selectedMetroId, setSelectedMetroId] = useState<number | null>(null);
+    const [metrosLoading, setMetrosLoading] = useState(false);
 
     // Step 1: Get user location
     useEffect(() => {
@@ -62,29 +65,103 @@ export default function HomePage() {
         }
     }, [coords]);
 
-    // Step 3: Fetch pandals on mount and when zone changes
+    // Step 3: Fetch metros and initial pandals when zone changes
     useEffect(() => {
-        setPandalsLoading(true);
-        const fetchPandals = selectedZone === 'All' ? fetchAllPandals() : fetchPandalsByZone(selectedZone);
-        
-        fetchPandals
-            .then((pandalData) => {
-                if (pandalData) {
-                    setPandals(pandalData);
-                    console.log(`Loaded ${pandalData.length} pandals for zone: ${selectedZone}`);
-                } else {
+        // Reset selected metro when zone changes
+        setSelectedMetroId(null);
+        setPandals([]);
+
+        if (selectedZone === 'All') {
+            // When 'All' is selected, fetch all pandals
+            setMetros([]);
+            setPandalsLoading(true);
+            fetchAllPandals()
+                .then((pandalData) => {
+                    if (pandalData) {
+                        setPandals(pandalData);
+                        console.log(`Loaded ${pandalData.length} pandals for all zones`);
+                    } else {
+                        setPandals([]);
+                    }
+                })
+                .catch((err) => {
+                    console.error('Error fetching all pandals:', err);
                     setPandals([]);
-                    console.log('No pandals found');
-                }
-            })
-            .catch((err) => {
-                console.error('Error fetching pandals:', err);
-                setPandals([]);
-            })
-            .finally(() => {
-                setPandalsLoading(false);
-            });
+                })
+                .finally(() => {
+                    setPandalsLoading(false);
+                });
+        } else {
+            // When a specific zone is selected, fetch metros AND pandals for that zone
+            setMetrosLoading(true);
+            setPandalsLoading(true);
+
+            // Fetch metros for the zone
+            fetchMetrosByZone(selectedZone)
+                .then((metroData) => {
+                    if (metroData) {
+                        setMetros(metroData);
+                        console.log(`Loaded ${metroData.length} metros for zone: ${selectedZone}`);
+                    } else {
+                        setMetros([]);
+                    }
+                })
+                .catch((err) => {
+                    console.error('Error fetching metros:', err);
+                    setMetros([]);
+                })
+                .finally(() => {
+                    setMetrosLoading(false);
+                });
+
+            // Also fetch all pandals for the zone initially
+            fetchPandalsByZone(selectedZone)
+                .then((pandalData) => {
+                    if (pandalData) {
+                        setPandals(pandalData);
+                        console.log(`Loaded ${pandalData.length} pandals for zone: ${selectedZone}`);
+                    } else {
+                        setPandals([]);
+                    }
+                })
+                .catch((err) => {
+                    console.error('Error fetching pandals for zone:', err);
+                    setPandals([]);
+                })
+                .finally(() => {
+                    setPandalsLoading(false);
+                });
+        }
     }, [selectedZone]);
+
+    // Step 4: Fetch pandals when a metro is selected
+    useEffect(() => {
+        if (selectedMetroId && selectedZone !== 'All') {
+            setPandalsLoading(true);
+            fetchPandalsByMetro(selectedZone, selectedMetroId)
+                .then((pandalData) => {
+                    if (pandalData) {
+                        setPandals(pandalData);
+                        console.log(`Loaded ${pandalData.length} pandals for metro ${selectedMetroId}`);
+                    } else {
+                        setPandals([]);
+                    }
+                })
+                .catch((err) => {
+                    console.error('Error fetching pandals for metro:', err);
+                    setPandals([]);
+                })
+                .finally(() => {
+                    setPandalsLoading(false);
+                });
+        }
+    }, [selectedMetroId, selectedZone]);
+
+    // Handle metro click
+    const handleMetroClick = (metroId: number) => {
+        console.log('Metro clicked:', metroId);
+        setSelectedMetroId(metroId);
+    };
 
     return (
         <main className="container mx-auto p-4 max-w-4xl">
@@ -130,22 +207,40 @@ export default function HomePage() {
                 </div>
             )}
 
-            <PandalSelector 
+            <PandalSelector
                 selectedZone={selectedZone}
                 onZoneChange={setSelectedZone}
-                isLoading={pandalsLoading}
+                isLoading={pandalsLoading || metrosLoading}
             />
+
+            {metros.length > 0 && selectedZone !== 'All' && (
+                <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <p className="text-sm text-blue-800 dark:text-blue-200">
+                        🚇 Showing {metros.length} metro stations in {selectedZone}
+                        {selectedMetroId && ` - Metro ID ${selectedMetroId} selected`}
+                    </p>
+                </div>
+            )}
 
             {pandals.length > 0 && (
                 <div className="mb-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
                     <p className="text-sm text-purple-800 dark:text-purple-200">
-                        🎪 Showing {pandals.length} pandals in {selectedZone === 'All' ? 'all zones' : selectedZone}
+                        🎪 Showing {pandals.length} pandals
+                        {selectedMetroId ? ` for selected metro` : selectedZone === 'All' ? ' in all zones' : ` in ${selectedZone}`}
                     </p>
                 </div>
             )}
 
             <div className="rounded-lg overflow-hidden shadow-lg">
-                <MapComponent user={coords} metro={station} pandals={pandals} />
+                <MapComponent
+                    user={coords}
+                    metro={station}
+                    pandals={pandals}
+                    metros={metros}
+                    selectedZone={selectedZone}
+                    onMetroClick={handleMetroClick}
+                    selectedMetroId={selectedMetroId}
+                />
             </div>
         </main>
     );
