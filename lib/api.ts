@@ -139,3 +139,66 @@ export async function fetchPandalsByMetro(zone: Zone, metroId: number): Promise<
         return [];
     }
 }
+
+// Function to fetch optimal route
+export interface OptimalRouteRequest {
+    startPoint: {
+        lat: number;
+        lon: number;
+        name: string;
+    };
+    pandals: Array<{
+        lat: number;
+        lon: number;
+        name: string;
+    }>;
+}
+
+export interface OptimalRouteResponse {
+    origin: {
+        lat: number;
+        lon: number;
+        name: string;
+    };
+    destination: {
+        lat: number;
+        lon: number;
+        name: string;
+    };
+    waypoints: Array<{
+        lat: number;
+        lon: number;
+        name: string;
+    }>;
+}
+
+export async function fetchOptimalRoute(routeRequest: OptimalRouteRequest): Promise<OptimalRouteResponse | null> {
+    try {
+        const url = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/route/optimal`;
+        console.log('Fetching optimal route from:', url);
+        console.log('Request payload:', routeRequest);
+
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(routeRequest),
+        });
+
+        console.log('Optimal route API Response Status:', res.status, res.statusText);
+
+        if (!res.ok) {
+            const errorText = await res.text();
+            console.error('Optimal route API Error Response:', errorText);
+            throw new Error(`Failed to fetch optimal route: ${res.status} ${res.statusText}`);
+        }
+
+        const data = await res.json();
+        console.log('Optimal route response:', data);
+        return data;
+    } catch (err) {
+        console.error('Error fetching optimal route:', err);
+        return null;
+    }
+}

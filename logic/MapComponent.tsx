@@ -10,6 +10,8 @@ import {
 import { useEffect, useState } from "react";
 import { UserLocation, MetroStation, Pandal, Metro, Zone } from "@/lib";
 import { RippleButton } from "@/components/magicui/ripple-button";
+import { AnimatedSubscribeButton } from "@/components/magicui/animated-subscribe-button";
+import { fetchOptimalRoute, OptimalRouteRequest, OptimalRouteResponse } from "@/lib/api";
 
 interface MapComponentProps {
     user: UserLocation | null;
@@ -38,6 +40,8 @@ export default function MapComponent({
         useState<google.maps.DirectionsResult | null>(null);
     const [selectedPandal, setSelectedPandal] = useState<Pandal | null>(null);
     const [selectedMetro, setSelectedMetro] = useState<Metro | null>(null);
+    const [isLoadingRoute, setIsLoadingRoute] = useState(false);
+    const [optimalRoute, setOptimalRoute] = useState<OptimalRouteResponse | null>(null);
 
     // ✅ State for persistent center
     const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({
@@ -86,6 +90,12 @@ export default function MapComponent({
         }
     }, [user, lockCenter]);
 
+    // Clear optimal route when zone or metro changes
+    useEffect(() => {
+        setOptimalRoute(null);
+        setDirections(null);
+    }, [selectedZone, selectedMetroId]);
+
     // Handle metro click
     const handleMetroClick = (metro: Metro) => {
         setSelectedMetro(metro);
@@ -99,6 +109,73 @@ export default function MapComponent({
         setSelectedPandal(pandal);
         setMapCenter({ lat: pandal.latitude, lng: pandal.longitude }); // ✅ recenter
         setLockCenter(true);
+    };
+
+    // Handle establish route
+    const handleEstablishRoute = async () => {
+        if (!selectedMetro || pandals.length === 0) {
+            console.error("No metro selected or no pandals available");
+            return;
+        }
+
+        setIsLoadingRoute(true);
+
+        try {
+            // Prepare the request payload
+            const routeRequest: OptimalRouteRequest = {
+                startPoint: {
+                    lat: selectedMetro.metroLat,
+                    lon: selectedMetro.metroLon,
+                    name: selectedMetro.metroName,
+                },
+                pandals: pandals.map(pandal => ({
+                    lat: pandal.latitude,
+                    lon: pandal.longitude,
+                    name: pandal.name,
+                })),
+            };
+
+            const optimalRouteResponse = await fetchOptimalRoute(routeRequest);
+
+            if (optimalRouteResponse) {
+                setOptimalRoute(optimalRouteResponse);
+
+                // Create Google Maps directions request
+                const waypoints = optimalRouteResponse.waypoints.map(wp => ({
+                    location: { lat: wp.lat, lng: wp.lon },
+                    stopover: true,
+                }));
+
+                const directionsService = new google.maps.DirectionsService();
+                directionsService.route(
+                    {
+                        origin: {
+                            lat: optimalRouteResponse.origin.lat,
+                            lng: optimalRouteResponse.origin.lon
+                        },
+                        destination: {
+                            lat: optimalRouteResponse.destination.lat,
+                            lng: optimalRouteResponse.destination.lon
+                        },
+                        waypoints: waypoints,
+                        optimizeWaypoints: false, // We already have optimized order from backend
+                        travelMode: google.maps.TravelMode.DRIVING,
+                    },
+                    (result, status) => {
+                        if (status === "OK" && result) {
+                            setDirections(result);
+                            console.log("Route established successfully");
+                        } else {
+                            console.error("Failed to get directions from Google Maps:", status);
+                        }
+                    }
+                );
+            }
+        } catch (error) {
+            console.error("Error establishing route:", error);
+        } finally {
+            setIsLoadingRoute(false);
+        }
     };
 
     if (!isLoaded) return <p>Loading Map...</p>;
@@ -219,23 +296,89 @@ export default function MapComponent({
                 )}
 
                 {/* Directions */}
-                {directions && selectedZone === "All" && (
-                    <DirectionsRenderer directions={directions} />
+                {directions && (
+                    <DirectionsRenderer
+                        directions={directions}
+                        options={{
+                            suppressMarkers: true,
+                            polylineOptions: {
+                                strokeColor: selectedZone === "All" ? "#4285F4" : "#34A853", // Blue for All zone, Green for optimal routes
+                                strokeWeight: 6,
+                                strokeOpacity: 0.8,
+                            },
+                        }}
+                    />
                 )}
             </GoogleMap>
 
-            {/* ✅ Reset Button */}
-            <RippleButton
-                onClick={() => {
-                    if (user) {
-                        setMapCenter({ lat: Number(user.lat), lng: Number(user.lon) });
-                        setLockCenter(false);
-                    }
-                }}
-                className="absolute bottom-4 right-4"
-            >
-                Reset to My Location
-            </RippleButton>
+            {/* Control Buttons */}
+            <div className="absolute bottom-4 right-4 flex flex-col gap-2">
+                {/* Establish Route Button */}
+                {selectedMetro && pandals.length > 0 && selectedZone !== "All" && (
+                    <RippleButton
+                        onClick={handleEstablishRoute}
+                        disabled={isLoadingRoute}
+                        className="bg-orange-500 hover:bg-orange-600 text-white"
+                    >
+                        {isLoadingRoute ? "Planning Route..." : "Establish Route"}
+                    </RippleButton>
+                )}
+
+                {/* Clear Route Button */}
+                {directions && optimalRoute && (
+                    <RippleButton
+                        onClick={() => {
+                            setDirections(null);
+                            setOptimalRoute(null);
+                        }}
+                        className="bg-red-500 hover:bg-red-600 text-white"
+                    >
+                        Clear Route
+                    </RippleButton>
+                )}
+
+                {/* Reset to My Location Button */}
+                <RippleButton
+                    onClick={() => {
+                        if (user) {
+                            setMapCenter({ lat: Number(user.lat), lng: Number(user.lon) });
+                            setLockCenter(false);
+                        }
+                    }}
+                    className=""
+                >
+                    Reset to My Location
+                </RippleButton>
+            </div>
+
+            {/* Route Info Panel */}
+            {optimalRoute && (
+                <div className="absolute top-4 left-4 bg-black p-4 rounded-lg shadow-lg max-w-sm">
+                    <div className="flex justify-between items-center mb-2">
+                        <h3 className="font-semibold text-sm">Optimal Route</h3>
+                        <button
+                            onClick={() => setOptimalRoute(null)}
+                            className="text-gray-400 hover:text-gray-600 text-lg font-bold"
+                        >
+                            ×
+                        </button>
+                    </div>
+                    <div className="text-xs space-y-1">
+                        <p><strong>Start:</strong> {optimalRoute.origin.name}</p>
+                        {optimalRoute.waypoints.length > 0 && (
+                            <div>
+                                <strong>Waypoints:</strong>
+                                <ul className="ml-2">
+                                    {optimalRoute.waypoints.map((wp, idx: number) => (
+                                        <li key={idx}>• {wp.name}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                        <p><strong>End:</strong> {optimalRoute.destination.name}</p>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
