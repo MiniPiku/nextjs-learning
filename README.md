@@ -20,6 +20,15 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Authentication
+
+This application supports both traditional email/password authentication and Google OAuth authentication:
+
+1. **Email/Password Login**: Users can sign up and log in using their email and password.
+2. **Google OAuth**: Users can authenticate using their Google account.
+
+After successful authentication, the JWT token and user ID are stored in localStorage and automatically included in API requests.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

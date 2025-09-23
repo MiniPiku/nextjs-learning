@@ -6,6 +6,7 @@ import MapComponent from "@/logic/MapComponent";
 import MetroInfo from "@/logic/MetroInfo";
 import PandalSelector from "@/logic/PandalSelector";
 import { UserLocation, MetroStation, Pandal, Zone, Metro } from "@/lib";
+import AuthStatus from "@/components/auth-status";
 
 export default function HomePage() {
     const [coords, setCoords] = useState<UserLocation | null>(null);
@@ -166,10 +167,15 @@ export default function HomePage() {
     return (
         <main className="container mx-auto p-4 max-w-4xl">
             <div className="mb-8">
-                <h1 className="text-3xl font-bold text-center mb-4">Pandal-Hopper</h1>
-                <p className="text-center text-gray-600 dark:text-gray-300">
-                    Let this site take care of your Pujo experience
-                </p>
+                <div className="flex justify-between items-center">
+                    <div>
+                        <h1 className="text-3xl font-bold text-center mb-4">Pandal-Hopper</h1>
+                        <p className="text-center text-gray-600 dark:text-gray-300">
+                            Let this site take care of your Pujo experience
+                        </p>
+                    </div>
+                    <AuthStatus />
+                </div>
             </div>
 
             {error && (
