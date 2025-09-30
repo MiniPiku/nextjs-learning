@@ -68,7 +68,7 @@ export default function SignupFormDemo() {
                 type="button"
                 onClick={() => {
                     const redirectUri = encodeURIComponent(`${window.location.origin}/auth/callback`);
-                    window.location.href = `http://localhost:8080/oauth2/authorization/google?redirect_uri=${redirectUri}`;
+                    window.location.href = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/oauth2/authorization/google?redirect_uri=${redirectUri}`;
                 }}
             >
                 <IconBrandGoogle className="h-4 w-4 text-neutral-800 dark:text-neutral-300" />
